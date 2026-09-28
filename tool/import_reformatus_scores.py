@@ -279,23 +279,45 @@ def pick_best_search_match(
 
 
 def _extract_svg_font_id(use_element: ET.Element) -> str | None:
+    """Return the font subset id of a glyph use, e.g. '10' or 'p0-10'.
+
+    Repaired multi-piece sources prefix each piece's ids ('p0-glyph-10-3')
+    so subsets from different PDFs stay distinct; the prefix is kept in the
+    font id so per-piece lyric blocks remain separate.
+    """
     href = use_element.get(XLINK_HREF) or use_element.get('href')
     if href is None:
         return None
-    match = re.fullmatch(r'#glyph-(\d+)-\d+', href)
+    match = re.fullmatch(r'#(p\d+-)?glyph-(\d+)-\d+', href)
     if match is None:
         return None
-    return match.group(1)
+    return f'{match.group(1) or ""}{match.group(2)}'
 
 
 def _extract_svg_glyph_index(use_element: ET.Element) -> int | None:
     href = use_element.get(XLINK_HREF) or use_element.get('href')
     if href is None:
         return None
-    match = re.fullmatch(r'#glyph-\d+-(\d+)', href)
+    match = re.fullmatch(r'#(?:p\d+-)?glyph-\d+-(\d+)', href)
     if match is None:
         return None
     return int(match.group(1))
+
+
+def _glyph_def_prefix(font_id: str) -> str:
+    """Def id prefix for a font subset ('p0-10' -> 'p0-glyph-10-')."""
+    piece = re.fullmatch(r'(p\d+)-(\d+)', font_id)
+    if piece:
+        return f'{piece.group(1)}-glyph-{piece.group(2)}-'
+    return f'glyph-{font_id}-'
+
+
+def _font_id_from_def(gid: str) -> str | None:
+    """Inverse of glyph def ids ('p0-glyph-10-3' -> 'p0-10')."""
+    match = re.fullmatch(r'(p\d+-)?glyph-(\d+)-\d+', gid)
+    if match is None:
+        return None
+    return f'{match.group(1) or ""}{match.group(2)}'
 
 
 def detect_svg_lyric_blocks(svg_text: str) -> tuple[SvgLyricBlock | None, SvgLyricBlock | None]:
@@ -445,12 +467,22 @@ def detect_svg_lyric_blocks(svg_text: str) -> tuple[SvgLyricBlock | None, SvgLyr
     first_y = score_block.rows[0].y
     last_y = score_block.rows[-1].y
     merge_lo = max(48.0, first_y - 60.0)
+    # Continuation pieces of repaired multi-page sources ('p1-','p2-'... font
+    # prefixes) are always hymn content — merge them even below last_y;
+    # ordinary same-piece rows below the score stay footnotes.
+    score_piece = re.match(r'p\d+-', score_block.font_id or '')
     extra_rows = [
         replace(row, font_id=block.font_id)
         for block in lyric_blocks
         if block is not score_block
         for row in block.rows
         if merge_lo <= row.y <= last_y
+        or (
+            score_piece is not None
+            and re.match(r'p\d+-', block.font_id or '') is not None
+            and re.match(r'p\d+-', block.font_id).group(0)
+            != score_piece.group(0)
+        )
     ]
     if extra_rows:
         score_block = SvgLyricBlock(
@@ -869,7 +901,7 @@ def _extract_font_glyph_shapes(svg_text: str, font_id: str) -> FontShapes:
     if font_id == '*':
         return FontShapes(None, None, {}, set())
     root = ET.fromstring(svg_text)
-    prefix = f'glyph-{font_id}-'
+    prefix = _glyph_def_prefix(font_id)
     hyphen_id: int | None = None
     space_id: int | None = None
     ink_bounds: dict[int, tuple[float, float, float, float]] = {}
@@ -1238,8 +1270,8 @@ def _extract_notehead_positions(
     notehead_glyphs: set[str] = set()
     for g in root.findall('.//svg:g', SVG_NAMESPACE):
         gid = g.get('id', '')
-        font_match = re.fullmatch(r'glyph-(\d+)-\d+', gid)
-        if font_match is None or font_match.group(1) in text_font_ids:
+        font_id = _font_id_from_def(gid)
+        if font_id is None or font_id in text_font_ids:
             continue
         extents = [
             extent
@@ -2260,6 +2292,33 @@ def find_ref48_source_song(songbook: dict, erdelyi_song_number: str) -> str | No
     return None
 
 
+def copy_ref48_verse_svgs(
+    target_song_number: str, verse_texts: list[str], ref48_song_number: str
+) -> list[str]:
+    """Pass ref48 per-verse score renders through as generated verse files.
+
+    ref48-{song}-00K.svg is already the complete score for verse K —
+    professionally hyphenated lyrics aligned to the notation — so
+    synthesizing lg- lyrics on top of the ref48 symbol dialect is both
+    unnecessary and broken.  Copy the files one-to-one.
+    """
+    # ref48-{song}-NNN.svg is the render of printed verse NNN; verses that
+    # were never digitized leave gaps in the sequence (e.g. ref48-263 has
+    # 001-005,009,010,015,018-022 for the book's 13 kept verses).  Map the
+    # available files to the song's verses in order.
+    ref48_files = sorted(
+        ref48_svg_path(ref48_song_number).parent.glob(
+            f'ref48-{ref48_song_number.zfill(3)}-*.svg'
+        )
+    )
+    score_files = []
+    for verse_index, src in enumerate(ref48_files[: len(verse_texts)]):
+        dst = generated_svg_path(target_song_number, verse_index)
+        dst.write_bytes(src.read_bytes())
+        score_files.append(f'assets/referdelyi/{dst.name}')
+    return score_files
+
+
 def apply_generated_verse_svgs(songbook: dict) -> None:
     for song_number, song in songbook['erdelyi'].items():
         if song.get('hasScore') is not True:
@@ -2271,10 +2330,10 @@ def apply_generated_verse_svgs(songbook: dict) -> None:
         if not score_files:
             ref48_song_number = find_ref48_source_song(songbook, song_number)
             if ref48_song_number is not None:
-                score_files = generate_score_files_from_svg_path(
+                score_files = copy_ref48_verse_svgs(
                     song_number,
                     song.get('texts', []),
-                    ref48_svg_path(ref48_song_number),
+                    ref48_song_number,
                 )
         if score_files:
             song['hasScore'] = True

@@ -44,7 +44,15 @@ syllabifier uses the publisher-extracted hyphenation dictionary vendored at
 
 Songs without an erdelyi
 source sheet fall back to matching ref48 scores; that pack is untracked
-too (see `restore_official_scores.sh`), and its seven songs' generated
-files stay committed so they always render.
+too (see `restore_official_scores.sh`). ref48 `ref48-<song>-NNN.svg`
+files are already complete per-verse renders, so they pass through as
+the verse assets unchanged (`copy_ref48_verse_svgs`), and the resulting
+files for those sixteen songs stay committed so they always render.
+
+`repair_score_sources.py` re-imports the erdelyi source sheets from the
+publisher PDFs, anchoring each song's region on its printed-number
+heading (`tool/printed_numbers.json` maps app numbers to printed
+numbers) instead of trusting the site's URL numbering, and stitches
+page-spanning scores into one `-001.svg`.
 
 Run tests: `python3 -m unittest tool.import_reformatus_scores_test`.
