@@ -291,7 +291,7 @@ Csatolhatsz képet is.''',
                           padding: const EdgeInsets.all(10),
                           child: Text(
                             '''
-Református Énekeskönyv (21/48)
+Református Énekeskönyv
 verzió: ${settings.packageInfo.version}+${settings.packageInfo.buildNumber}
 by RefLabs''',
                             style: TextStyle(
@@ -346,8 +346,7 @@ by RefLabs''',
                                   label: const Text('Licenszek'),
                                   onPressed: () => showLicensePage(
                                     context: context,
-                                    applicationName:
-                                        'Református Énekeskönyv (21/48)',
+                                    applicationName: 'Református Énekeskönyv',
                                     applicationVersion:
                                         '${settings.packageInfo.version}+${settings.packageInfo.buildNumber}',
                                   ),
@@ -425,7 +424,7 @@ class RelatedTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String songKey = songLink.split('/').last;
-    Book book = songLink.split('/').first == '21' ? Book.blue : Book.black;
+    Book book = Book.fromName(songLink.split('/').first);
 
     return ListTile(
       leading: Card(

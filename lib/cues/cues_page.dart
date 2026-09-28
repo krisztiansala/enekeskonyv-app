@@ -123,9 +123,7 @@ class CuesPage extends StatelessWidget {
                     List<String> parts = verseId.split('.');
                     String songKey = parts[1];
                     int verseIndex = int.parse(parts[2]);
-                    Book book = Book.values.firstWhere(
-                      (b) => b.name == parts[0],
-                    );
+                    Book book = Book.fromName(parts[0]);
 
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -370,7 +368,7 @@ class CuesPage extends StatelessWidget {
     int cueIndex,
     SettingsProvider settings,
   ) {
-    Book book = Book.values.firstWhere((b) => b.name == bookName);
+    Book book = Book.fromName(bookName);
     var song = songBooks[bookName][songKey];
     String verse;
     String? verseNumber;

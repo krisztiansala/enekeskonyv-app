@@ -138,9 +138,7 @@ class _SongPageState extends State<SongPage> with TickerProviderStateMixin {
             data: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.fromSeed(
-                seedColor: state.book == Book.black
-                    ? Colors.amber
-                    : Colors.blue,
+                seedColor: state.book.themeColor,
                 brightness: settings.getCurrentSheetBrightness(context),
                 surface:
                     settings.isOledTheme &&

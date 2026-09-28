@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../quick_settings_dialog.dart';
 import '../settings_provider.dart';
+import '../utils.dart';
 import 'song_page_state.dart';
 import 'text_icon_button.dart';
 
@@ -171,7 +172,7 @@ class ControllerButtons extends StatelessWidget {
       TextIconButton(
         key: const Key('_MySongPageState.IconButton.prevSong'),
         text: state.songExists(next: false)
-            ? songBooks[state.book.name].keys.elementAt(state.song - 1)
+            ? songKeyFor(state.book, state.song - 1)
             : null,
         onTap: state.songExists(next: false)
             ? () =>
@@ -219,7 +220,7 @@ class ControllerButtons extends StatelessWidget {
       TextIconButton(
         key: const Key('_MySongPageState.IconButton.nextSong'),
         text: state.songExists(next: true)
-            ? songBooks[state.book.name].keys.elementAt(state.song + 1)
+            ? songKeyFor(state.book, state.song + 1)
             : null,
         onTap: state.songExists(next: true)
             ? () => state.switchSong(next: true, context: context, vsync: vsync)

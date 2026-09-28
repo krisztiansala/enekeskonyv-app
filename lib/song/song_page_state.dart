@@ -124,7 +124,7 @@ class SongStateProvider extends ChangeNotifier {
 
   // To retrieve the song data, the key (the actual number of the song) is
   // needed, not the index (the position in the list).
-  String get songKey => songBooks[book.name].keys.elementAt(song);
+  String get songKey => songKeyFor(book, song);
 
   void showThenHideVerseBar() {
     if (DateTime.now().difference(barLastShownAtTime) <
@@ -279,12 +279,12 @@ class SongStateProvider extends ChangeNotifier {
     TickerProvider vsync,
   ) {
     var parts = verseId.split('.');
-    Book book = Book.values.firstWhere((b) => b.name == parts[0]);
+    Book book = Book.fromName(parts[0]);
     String songKey = parts[1];
     int verseIndex = int.parse(parts[2]);
 
     this.book = book;
-    song = songBooks[book.name].keys.toList().indexOf(songKey);
+    song = songIndexFor(book, songKey);
     verse = verseIndex;
     _cueIndex = cueIndex;
 
