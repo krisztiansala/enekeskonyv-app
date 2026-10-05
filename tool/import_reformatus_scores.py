@@ -2116,10 +2116,65 @@ def render_verse_svg(
     return ET.tostring(root, encoding='unicode')
 
 
+_PRINTED_NUMBERS: dict[str, int] | None = None
+
+
+def _printed_song_number(source_song_number: str) -> int | None:
+    """The printed hymnal number shown in a source score's heading."""
+    global _PRINTED_NUMBERS
+    if _PRINTED_NUMBERS is None:
+        p = Path(__file__).resolve().parent / 'printed_numbers.json'
+        _PRINTED_NUMBERS = (
+            {
+                int(k): int(v)
+                for k, v in json.loads(p.read_text(encoding='utf-8')).items()
+            }
+            if p.exists()
+            else {}
+        )
+    return _PRINTED_NUMBERS.get(int(source_song_number))
+
+
+def _strip_printed_song_number(svg_text: str, printed_number: int) -> str:
+    """Drop the score heading's printed song number when it does not match
+    the app's song number — the app shows its own number, and the printed
+    one (e.g. '422' under Erdélyi song 491) is misleading furniture.
+
+    In the generated sheet the number is the topmost run of digit glyphs
+    sharing one font subset; a neighbouring title run uses a second font.
+    """
+    uses = [u for u in _ref48_uses(svg_text) if not u[4].startswith('lg-')]
+    if not uses:
+        return svg_text
+    top_y = min(u[3] for u in uses)
+    top = [u for u in uses if u[3] <= top_y + 1.0]
+    groups: dict[str, list] = {}
+    for u in top:
+        groups.setdefault(u[4].rsplit('-', 1)[0], []).append(u)
+    digits = len(str(printed_number))
+    best = None
+    for members in groups.values():
+        members.sort(key=lambda u: u[2])
+        if len(members) not in (digits, digits + 1):
+            continue
+        xs = [u[2] for u in members]
+        if any(b - a > 20.0 for a, b in zip(xs, xs[1:])):
+            continue
+        if best is None or members[0][2] < best[0][2]:
+            best = members
+    if best is None:
+        return svg_text
+    for u in sorted(best, key=lambda u: u[0], reverse=True):
+        svg_text = svg_text[: u[0]] + svg_text[u[1] :]
+    return svg_text
+
+
 def generate_score_files_from_svg_path(
     target_song_number: str,
     verse_texts: list[str],
     svg_path: Path,
+    *,
+    printed_number: int | None = None,
 ) -> list[str]:
     if not svg_path.exists():
         return []
@@ -2244,22 +2299,27 @@ def generate_score_files_from_svg_path(
             )
             song_font = min(song_font, verse_font)
 
+    strip_number = (
+        printed_number is not None
+        and printed_number != int(target_song_number)
+    )
     score_files = []
     for verse_index, verse_text in enumerate(verse_texts):
         output_path = generated_svg_path(target_song_number, verse_index)
-        output_path.write_text(
-            render_verse_svg(
-                svg_text,
-                verse_text,
-                score_block,
-                footer_block,
-                note_onsets_per_row=note_onsets_per_row,
-                recovery_candidates_per_row=recovery_candidates_per_row,
-                forced_font_size=song_font if note_onsets_per_row is not None else None,
-                lyric_rows=lyric_rows,
-                prose_page=prose_page,
-            ),
+        rendered = render_verse_svg(
+            svg_text,
+            verse_text,
+            score_block,
+            footer_block,
+            note_onsets_per_row=note_onsets_per_row,
+            recovery_candidates_per_row=recovery_candidates_per_row,
+            forced_font_size=song_font if note_onsets_per_row is not None else None,
+            lyric_rows=lyric_rows,
+            prose_page=prose_page,
         )
+        if strip_number:
+            rendered = _strip_printed_song_number(rendered, printed_number)
+        output_path.write_text(rendered)
         score_files.append(f'assets/referdelyi/{output_path.name}')
     return score_files
 
@@ -2275,6 +2335,7 @@ def generate_score_files_from_source_svg(
         target_song_number,
         verse_texts,
         source_svg_path(source_number),
+        printed_number=_printed_song_number(source_number),
     )
 
 
