@@ -2,6 +2,7 @@ import contextlib
 import io
 import re
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,11 @@ from import_reformatus_scores import (
 
     _FIXED_SYLLABLE_FONT,
     _has_severe_clipping,
+    _ref48_is_dot,
+    _ref48_number_cluster,
+    _ref48_lyric_rows,
+    _renumber_ref48_sheet,
+    _truncate_ref48_sheet,
     _remove_header_text,
     apply_shared_score_aliases,
     compute_mask_boxes,
@@ -730,6 +736,135 @@ class SongFontReductionTest(unittest.TestCase):
         self.assertEqual(
             _compute_song_font_size(block.rows, lines, None), _FIXED_SYLLABLE_FONT
         )
+
+
+class Ref48SheetRepairTest(unittest.TestCase):
+    """Renumbering/truncation of pass-through ref48 verse sheets."""
+
+    _DIGIT_D = 'm7.25 0v-13.59h-1.78c-.42 1.6-1.82 2.43-4.17 2.43v1.78h3.26v9.37z'
+    _DOT_D = 'm4.21 0v-2.87h-2.95v2.87zm0 0'
+
+    def _sheet(self, number_uses, row_y=90.0, extra_lyric_rows=3):
+        symbols = {
+            'dg': self._DIGIT_D,
+            'dp': self._DOT_D,
+            'wa': 'm10 0v-10h2v10z',
+            'wb': 'm10 0v-10h2v10z',
+        }
+        head = [
+            f'<svg height="580em" viewBox="0 0 595.28 580"'
+            ' xmlns="http://www.w3.org/2000/svg"'
+            ' xmlns:xlink="http://www.w3.org/1999/xlink">'
+        ]
+        head += [
+            f'<symbol id="{k}" overflow="visible"><path d="{d}"/></symbol>'
+            for k, d in symbols.items()
+        ]
+        body = [''.join(number_uses)]
+        for i in range(10):
+            body.append(
+                f'<use x="{60 + i * 40}" xlink:href="#w{"ab"[i % 2]}" y="{row_y}"/>'
+            )
+        for r in range(1, extra_lyric_rows + 1):
+            y = row_y + r * 110
+            for i in range(10):
+                body.append(
+                    f'<use x="{20 + i * 50}" xlink:href="#w{"ab"[i % 2]}"'
+                    f' y="{y}"/>'
+                )
+            body.append(f'<path d="m0 {y - 60}h595v2h-595z"/>')
+        return ''.join(head + body) + '</svg>'
+
+    def _donor_dir(self, tmp, number):
+        n = len(str(number))
+        uses = [
+            f'<use x="{i * 11}" xlink:href="#dg" y="90"/>' for i in range(n)
+        ]
+        uses.append(f'<use x="{n * 11}" xlink:href="#dp" y="90"/>')
+        path = Path(tmp) / f'ref48-999-{number:03d}.svg'
+        path.write_text(self._sheet(uses), encoding='utf-8')
+        return Path(tmp)
+
+    def test_renumbers_single_digit(self):
+        sheet = self._sheet(
+            [
+                '<use x="25" xlink:href="#dg" y="90"/>',
+                '<use x="36" xlink:href="#dp" y="90"/>',
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            ref48_dir = self._donor_dir(tmp, 6)
+            out = _renumber_ref48_sheet(sheet, 9, 6, ref48_dir)
+        self.assertIn('ref48-renum-0', out)
+        self.assertIn(
+            '<use x="25.0" xlink:href="#ref48-renum-0" y="90.0"/>', out
+        )
+        self.assertIn('<use x="36.0" xlink:href="#dp" y="90.0"/>', out)
+
+    def test_x_less_use_and_dot_keeps_positions(self):
+        # "22." = '2' at implicit x=0, '2' at 10.9, '.' at 21.8 -> "13."
+        sheet = self._sheet(
+            [
+                '<use xlink:href="#dg" y="90"/>',
+                '<use x="10.9" xlink:href="#dg" y="90"/>',
+                '<use x="21.8" xlink:href="#dp" y="90"/>',
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            ref48_dir = self._donor_dir(tmp, 13)
+            out = _renumber_ref48_sheet(sheet, 22, 13, ref48_dir)
+        self.assertIsNotNone(out)
+        self.assertIn(
+            '<use x="0.0" xlink:href="#ref48-renum-0" y="90.0"/>', out
+        )
+        self.assertIn(
+            '<use x="10.9" xlink:href="#ref48-renum-1" y="90.0"/>', out
+        )
+        self.assertIn('<use x="21.8" xlink:href="#dp" y="90.0"/>', out)
+
+    def test_dot_symbol_detection(self):
+        sheet = self._sheet(['<use x="25" xlink:href="#dp" y="90"/>'])
+        self.assertTrue(_ref48_is_dot(sheet, 'dp'))
+        self.assertFalse(_ref48_is_dot(sheet, 'dg'))
+        self.assertFalse(_ref48_is_dot(sheet, 'wa'))
+
+    def test_missing_donor_returns_none(self):
+        sheet = self._sheet(['<use x="25" xlink:href="#dg" y="90"/>'])
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIsNone(
+                _renumber_ref48_sheet(sheet, 9, 6, Path(tmp))
+            )
+
+    def test_truncate_crops_below_kept_lyric_row(self):
+        sheet = self._sheet(
+            ['<use x="25" xlink:href="#dp" y="90"/>'], extra_lyric_rows=4
+        )
+        out = _truncate_ref48_sheet(sheet, 2)
+        self.assertIsNotNone(out)
+        m = re.search(r'viewBox="0 0 595\.28 ([\d.]+)"', out)
+        self.assertIsNotNone(m)
+        crop = float(m.group(1))
+        self.assertGreater(crop, 200)   # below row-2 lyrics (y=200)
+        self.assertLess(crop, 310)      # above row-3's staff (y=310 region)
+        self.assertIn(f'height="{crop:.2f}em"', out)
+
+    def test_truncate_noop_when_few_rows(self):
+        sheet = self._sheet(
+            ['<use x="25" xlink:href="#dp" y="90"/>'], extra_lyric_rows=1
+        )
+        self.assertIsNone(_truncate_ref48_sheet(sheet, 3))
+
+    def test_lyric_rows_and_cluster(self):
+        sheet = self._sheet(
+            [
+                '<use x="25" xlink:href="#dg" y="90"/>',
+                '<use x="36" xlink:href="#dp" y="90"/>',
+            ]
+        )
+        rows = _ref48_lyric_rows(sheet)
+        self.assertEqual(len(rows), 4)
+        cluster = _ref48_number_cluster(sheet, rows[0][1])
+        self.assertEqual(len(cluster), 2)
 
 
 if __name__ == '__main__':

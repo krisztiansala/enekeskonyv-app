@@ -2292,6 +2292,189 @@ def find_ref48_source_song(songbook: dict, erdelyi_song_number: str) -> str | No
     return None
 
 
+# A verse number is rendered as one <use> per digit (or a ligature) plus a
+# trailing "." — which in this font subset is a tiny filled rectangle.
+_REF48_DOT_D_RE = re.compile(
+    r'm-?\d+(?:\.\d+)? 0v(?P<h1>-?\d+(?:\.\d+)?)h(?P<w>-?\d+(?:\.\d+)?)'
+    r'v(?P<h2>-?\d+(?:\.\d+)?)z'
+)
+
+# Lyric rows hold a full line of syllabified text — a dozen or more <use>
+# symbols; staff/note rows place only a handful.
+_REF48_LYRIC_ROW_MIN_USES = 8
+
+# (song, 0-based verse) -> lyric rows to keep when the ref48 sheet prints
+# verse lines the Erdélyi edition dropped.  ref48-267 verse 7 appends a
+# two-line doxology ('Adj mindvégig megmaradást / És idvességes kimúlást!')
+# that Erdélyi 405 does not have, so its last two systems are cropped away.
+_REF48_TRUNCATE_AFTER_LYRIC_ROW = {('405', 6): 3}
+
+
+def _ref48_uses(content: str) -> list[tuple[int, int, float, float, str]]:
+    """All <use> elements as (start, end, x, y, href); a missing x means 0."""
+    out = []
+    for m in re.finditer(r'<use\b[^>]*?/?>', content):
+        tag = m.group(0)
+        href = re.search(r'xlink:href="#([^"]+)"', tag)
+        y = re.search(r'\by="(-?\d+(?:\.\d+)?)"', tag)
+        if not (href and y):
+            continue
+        x = re.search(r'\bx="(-?\d+(?:\.\d+)?)"', tag)
+        out.append(
+            (m.start(), m.end(), float(x.group(1)) if x else 0.0,
+             float(y.group(1)), href.group(1))
+        )
+    return out
+
+
+def _ref48_lyric_rows(content: str) -> list[tuple[float, list]]:
+    rows: dict[float, list] = {}
+    for u in _ref48_uses(content):
+        rows.setdefault(round(u[3], 2), []).append(u)
+    return [
+        (y, sorted(ms, key=lambda u: u[2]))
+        for y, ms in sorted(rows.items())
+        if len(ms) >= _REF48_LYRIC_ROW_MIN_USES
+    ]
+
+
+def _ref48_is_dot(content: str, href: str) -> bool:
+    """True if the symbol renders the tiny filled rectangle used for '.'."""
+    m = re.search(
+        r'<symbol id="%s"[^>]*><path d="([^"]*)"' % re.escape(href), content
+    )
+    if not m:
+        return False
+    d = re.sub(r'zm0 0$', 'z', m.group(1).strip())
+    r = _REF48_DOT_D_RE.fullmatch(d)
+    return bool(
+        r
+        and abs(float(r.group('h1'))) <= 6
+        and abs(float(r.group('w'))) <= 6
+    )
+
+
+def _ref48_number_cluster(content: str, row_uses: list) -> list | None:
+    """Leading 'N.' uses of a lyric row: digits/ligature ending with '.'."""
+    cluster = []
+    for u in row_uses:
+        cluster.append(u)
+        if _ref48_is_dot(content, u[4]):
+            return cluster
+        if len(cluster) >= 4:
+            break
+    return None
+
+
+def _ref48_digit_symbols(ref48_dir: Path, number: int) -> list[str] | None:
+    """Glyph defs for the digits of `number`, lifted from any ref48 verse
+    sheet that prints `number.` — its first lyric row begins with the digit
+    uses followed by a period."""
+    digits = str(number)
+    for donor in sorted(ref48_dir.glob(f'ref48-*-{number:03d}.svg')):
+        content = donor.read_text(encoding='utf-8')
+        rows = _ref48_lyric_rows(content)
+        if not rows:
+            continue
+        cluster = _ref48_number_cluster(content, rows[0][1])
+        if cluster is None:
+            continue
+        defs = [
+            re.search(
+                r'<symbol id="%s"[^>]*>.*?</symbol>' % re.escape(u[4]),
+                content,
+                re.S,
+            )
+            for u in cluster[:-1]
+        ]
+        if len(defs) == len(digits) and all(defs):
+            return [d.group(0) for d in defs]
+    return None
+
+
+def _renumber_ref48_sheet(
+    content: str, printed_number: int, target_number: int, ref48_dir: Path
+) -> str | None:
+    """Rewrite the 'N.' verse-number heading of a ref48 verse sheet to the
+    target edition's verse number, reusing digit glyphs from a donor sheet
+    that prints that number."""
+    if printed_number == target_number:
+        return content
+    digit_syms = _ref48_digit_symbols(ref48_dir, target_number)
+    rows = _ref48_lyric_rows(content)
+    if digit_syms is None or not rows:
+        return None
+    row = rows[0][1]
+    cluster = _ref48_number_cluster(content, row)
+    if cluster is None:
+        return None
+    cluster = sorted(cluster, key=lambda u: u[0])
+    # The number cluster must be contiguous in the file — refuse to splice
+    # across unrelated elements.
+    for a, b in zip(cluster, cluster[1:]):
+        if content[a[1] : b[0]].strip():
+            return None
+    start_x = cluster[0][2]
+    spacing = (cluster[-1][2] - start_x) / max(len(cluster) - 1, 1)
+    digits = str(target_number)
+    parts = [
+        f'<use x="{start_x + i * spacing}" xlink:href="#ref48-renum-{i}"'
+        f' y="{cluster[0][3]}"/>'
+        for i in range(len(digits))
+    ]
+    parts.append(
+        f'<use x="{start_x + len(digits) * spacing}"'
+        f' xlink:href="#{cluster[-1][4]}" y="{cluster[0][3]}"/>'
+    )
+    content = (
+        content[: cluster[0][0]]
+        + ''.join(parts)
+        + content[cluster[-1][1] :]
+    )
+    injected = []
+    for i, sym in enumerate(digit_syms):
+        orig_id = re.search(r'id="([^"]+)"', sym).group(1)
+        injected.append(
+            sym.replace(f'id="{orig_id}"', f'id="ref48-renum-{i}"', 1)
+        )
+    # ref48 files keep <symbol>/<clipPath> defs as top-level children with
+    # no <defs> wrapper — inject right after the root <svg> tag.
+    svg_open = re.search(r'<svg\b[^>]*>', content)
+    if svg_open is None:
+        return None
+    insert_at = svg_open.end()
+    return (
+        content[:insert_at] + ''.join(injected) + content[insert_at:]
+    )
+
+
+def _truncate_ref48_sheet(content: str, keep_lyric_rows: int) -> str | None:
+    """Crop systems below the `keep_lyric_rows`-th lyric row by shrinking the
+    viewBox (and height) to the midpoint of the gap before the next system."""
+    rows = _ref48_lyric_rows(content)
+    if len(rows) <= keep_lyric_rows:
+        return None
+    last_keep_y = rows[keep_lyric_rows - 1][0]
+    below = [u[3] for u in _ref48_uses(content) if u[3] > last_keep_y + 1]
+    below += [
+        float(m.group('y'))
+        for m in re.finditer(
+            r'<path d="[mM]-?[\d.]+[ ,](?P<y>-?[\d.]+)', content
+        )
+        if float(m.group('y')) > last_keep_y + 1
+    ]
+    if not below:
+        return None
+    crop = (last_keep_y + min(below)) / 2
+    content = re.sub(
+        r'viewBox="(\d+(?:\.\d+)? \d+(?:\.\d+)? [\d.]+) [\d.]+"',
+        lambda m: f'viewBox="{m.group(1)} {crop:.2f}"',
+        content,
+        count=1,
+    )
+    return re.sub(r'height="[\d.]+em"', f'height="{crop:.2f}em"', content, count=1)
+
+
 def copy_ref48_verse_svgs(
     target_song_number: str, verse_texts: list[str], ref48_song_number: str
 ) -> list[str]:
@@ -2300,7 +2483,9 @@ def copy_ref48_verse_svgs(
     ref48-{song}-00K.svg is already the complete score for verse K —
     professionally hyphenated lyrics aligned to the notation — so
     synthesizing lg- lyrics on top of the ref48 symbol dialect is both
-    unnecessary and broken.  Copy the files one-to-one.
+    unnecessary and broken.  The sheets are reused with two repairs: the
+    printed 'N.' heading is rewritten when the target edition's verse number
+    differs, and trailing ref48-only systems (e.g. a doxology) are cropped.
     """
     # ref48-{song}-NNN.svg is the render of printed verse NNN; verses that
     # were never digitized leave gaps in the sequence (e.g. ref48-263 has
@@ -2314,7 +2499,31 @@ def copy_ref48_verse_svgs(
     score_files = []
     for verse_index, src in enumerate(ref48_files[: len(verse_texts)]):
         dst = generated_svg_path(target_song_number, verse_index)
-        dst.write_bytes(src.read_bytes())
+        content = src.read_text(encoding='utf-8')
+        printed_number = int(src.stem.rsplit('-', 1)[1])
+        fixed = _renumber_ref48_sheet(
+            content, printed_number, verse_index + 1, src.parent
+        )
+        if fixed is None:
+            print(
+                f'WARNING: could not renumber {src.name}'
+                f' to verse {verse_index + 1}'
+            )
+        else:
+            content = fixed
+        keep_rows = _REF48_TRUNCATE_AFTER_LYRIC_ROW.get(
+            (target_song_number, verse_index)
+        )
+        if keep_rows is not None:
+            truncated = _truncate_ref48_sheet(content, keep_rows)
+            if truncated is None:
+                print(
+                    f'WARNING: could not truncate {src.name}'
+                    f' after {keep_rows} lyric rows'
+                )
+            else:
+                content = truncated
+        dst.write_text(content, encoding='utf-8')
         score_files.append(f'assets/referdelyi/{dst.name}')
     return score_files
 
