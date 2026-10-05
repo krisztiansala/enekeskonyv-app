@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fading_edge_scrollview/fading_edge_scrollview.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -223,7 +224,7 @@ class CuesPage extends StatelessWidget {
                                 oldIndex,
                                 newIndex,
                               ),
-                          physics: Platform.isIOS
+                          physics: !kIsWeb && Platform.isIOS
                               ? const BouncingScrollPhysics()
                               : null,
                           children: getVerseTiles(settings),

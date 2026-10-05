@@ -248,7 +248,9 @@ void main() {
       (erdelyi['481']['texts'] as List<dynamic>).length,
     );
     expect(erdelyi['488']['title'], 'Áldásoddal megyünk');
-    expect(erdelyi['488']['hasScore'], isTrue);
+    // 488 was confirmed absent from the printed source book — hasScore is
+    // intentionally false rather than shipping an unrelated melody.
+    expect(erdelyi['488']['hasScore'], isFalse);
     for (final songKey in ['219', '270', '271', '272', '274', '275', '427']) {
       expect(
         (erdelyi[songKey]['scoreFiles'] as List<dynamic>).length,

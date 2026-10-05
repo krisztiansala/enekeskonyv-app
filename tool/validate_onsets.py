@@ -90,6 +90,11 @@ def main() -> int:
             continue
         svg_text = svg_path.read_text()
         score_block, footer_block = m.detect_svg_lyric_blocks(svg_text)
+        if score_block is None or score_block.font_id == '*':
+            # No lyric block, or the generic fallback that carries no glyph
+            # shapes — the generator skips these pages; so does validation.
+            print(f'{song_number}: no lyric block in svg')
+            continue
         row_fonts = [
             r.font_id or score_block.font_id for r in score_block.rows
         ]
@@ -172,12 +177,13 @@ def main() -> int:
             j = 0
             for d in detected:
                 found = None
-                while j < len(truth):
-                    if truth[j] and abs(truth[j][0] - d[0]) <= 3.0:
-                        found = truth[j]
+                if d:
+                    while j < len(truth):
+                        if truth[j] and abs(truth[j][0] - d[0]) <= 3.0:
+                            found = truth[j]
+                            j += 1
+                            break
                         j += 1
-                        break
-                    j += 1
                 aligned.append(found)
             # The DP may use recovery candidates on top of detected onsets,
             # so the true count must fall inside [detected, detected+cands].

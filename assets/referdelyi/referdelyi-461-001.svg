@@ -473,31 +473,31 @@
 </g>
 </g>
 <clipPath id="p0-clip-0">
-<path clip-rule="nonzero" d="M 42.792969 31.2544 L 46.503906 31.2544 L 46.503906 44.2544 L 42.792969 44.2544 Z M 42.792969 31.2544 " />
+<path clip-rule="nonzero" d="M 42.792969 31.2544 L 46.503906 31.2544 L 46.503906 44.2544 L 42.792969 44.2544 Z M 42.792969 31.2544" />
 </clipPath>
 <clipPath id="p0-clip-1">
-<path clip-rule="nonzero" d="M 47.941406 37.2544 L 51.652344 37.2544 L 51.652344 50.2544 L 47.941406 50.2544 Z M 47.941406 37.2544 " />
+<path clip-rule="nonzero" d="M 47.941406 37.2544 L 51.652344 37.2544 L 51.652344 50.2544 L 47.941406 50.2544 Z M 47.941406 37.2544" />
 </clipPath>
 <clipPath id="p0-clip-2">
-<path clip-rule="nonzero" d="M 159.863281 39.2544 L 165 39.2544 L 165 53.2544 L 159.863281 53.2544 Z M 159.863281 39.2544 " />
+<path clip-rule="nonzero" d="M 159.863281 39.2544 L 165 39.2544 L 165 53.2544 L 159.863281 53.2544 Z M 159.863281 39.2544" />
 </clipPath>
 <clipPath id="p0-clip-3">
-<path clip-rule="nonzero" d="M 301 170.254 L 304.820312 170.254 L 304.820312 189.254 L 301 189.254 Z M 301 170.254 " />
+<path clip-rule="nonzero" d="M 301 170.254 L 304.820312 170.254 L 304.820312 189.254 L 301 189.254 Z M 301 170.254" />
 </clipPath>
 <clipPath id="p0-clip-4">
-<path clip-rule="nonzero" d="M 27.710938 171.254 L 304.820312 171.254 L 304.820312 172.254 L 27.710938 172.254 Z M 27.710938 171.254 " />
+<path clip-rule="nonzero" d="M 27.710938 171.254 L 304.820312 171.254 L 304.820312 172.254 L 27.710938 172.254 Z M 27.710938 171.254" />
 </clipPath>
 <clipPath id="p0-clip-5">
-<path clip-rule="nonzero" d="M 27.710938 175.254 L 304.820312 175.254 L 304.820312 176.254 L 27.710938 176.254 Z M 27.710938 175.254 " />
+<path clip-rule="nonzero" d="M 27.710938 175.254 L 304.820312 175.254 L 304.820312 176.254 L 27.710938 176.254 Z M 27.710938 175.254" />
 </clipPath>
 <clipPath id="p0-clip-6">
-<path clip-rule="nonzero" d="M 27.710938 179.254 L 304.820312 179.254 L 304.820312 180.254 L 27.710938 180.254 Z M 27.710938 179.254 " />
+<path clip-rule="nonzero" d="M 27.710938 179.254 L 304.820312 179.254 L 304.820312 180.254 L 27.710938 180.254 Z M 27.710938 179.254" />
 </clipPath>
 <clipPath id="p0-clip-7">
-<path clip-rule="nonzero" d="M 27.710938 183.254 L 304.820312 183.254 L 304.820312 184.254 L 27.710938 184.254 Z M 27.710938 183.254 " />
+<path clip-rule="nonzero" d="M 27.710938 183.254 L 304.820312 183.254 L 304.820312 184.254 L 27.710938 184.254 Z M 27.710938 183.254" />
 </clipPath>
 <clipPath id="p0-clip-8">
-<path clip-rule="nonzero" d="M 27.710938 187.254 L 304.820312 187.254 L 304.820312 188.254 L 27.710938 188.254 Z M 27.710938 187.254 " />
+<path clip-rule="nonzero" d="M 27.710938 187.254 L 304.820312 187.254 L 304.820312 188.254 L 27.710938 188.254 Z M 27.710938 187.254" />
 </clipPath>
 </defs><g fill="rgb(13.729858%, 12.159729%, 12.548828%)" fill-opacity="1">
 <use xlink:href="#p0-glyph-3-0" x="59.731469" y="15.093" />
@@ -2401,7 +2401,7 @@
 <use xlink:href="#p0-glyph-7-4" x="145.259508" y="140.946" />
 </g>
 <path fill="none" stroke-width="0.36" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(6.307983%, 5.787659%, 5.090332%)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.000359502 -0.00117945 L 0.000359502 12.478892 " transform="matrix(0.997528,0,0,-0.997528,149.808,140.706)" />
-<path fill-rule="evenodd" fill="rgb(6.307983%, 5.787659%, 5.090332%)" fill-opacity="1" d="M 140.113281 143.890625 L 149.929688 145.804688 L 149.929688 147.839844 L 140.113281 145.925781 Z M 140.113281 143.890625 " />
+<path fill-rule="evenodd" fill="rgb(6.307983%, 5.787659%, 5.090332%)" fill-opacity="1" d="M 140.113281 125.145 L 149.929688 127.059 L 149.929688 129.094 L 140.113281 127.18 Z M 140.113281 125.145" />
 <path fill="none" stroke-width="0.36" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(6.307983%, 5.787659%, 5.090332%)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00189031 -0.000979542 L 0.00189031 13.438495 " transform="matrix(0.997528,0,0,-0.997528,160.701,138.671)" />
 <g fill="rgb(6.307983%, 5.787659%, 5.090332%)" fill-opacity="1">
 <use xlink:href="#p0-glyph-7-3" x="156.152512" y="139.031" />
@@ -2470,7 +2470,7 @@
 <use xlink:href="#p0-glyph-7-4" x="269.750985" y="142.981" />
 </g>
 <path fill="none" stroke-width="0.36" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(6.307983%, 5.787659%, 5.090332%)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00107193 0.0000144883 L 0.00107193 12.480086 " transform="matrix(0.997528,0,0,-0.997528,274.3,142.622)" />
-<path fill-rule="evenodd" fill="rgb(6.307983%, 5.787659%, 5.090332%)" fill-opacity="1" d="M 264.605469 145.804688 L 274.417969 147.839844 L 274.417969 149.875 L 264.605469 147.839844 Z M 264.605469 145.804688 " />
+<path fill-rule="evenodd" fill="rgb(6.307983%, 5.787659%, 5.090332%)" fill-opacity="1" d="M 264.605469 127.059 L 274.417969 129.094 L 274.417969 131.129 L 264.605469 129.094 Z M 264.605469 127.059" />
 <path fill="none" stroke-width="0.36" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(6.307983%, 5.787659%, 5.090332%)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.000943262 -0.00117945 L 0.000943262 13.559689 " transform="matrix(0.997528,0,0,-0.997528,284.714,140.706)" />
 <g fill="rgb(6.307983%, 5.787659%, 5.090332%)" fill-opacity="1">
 <use xlink:href="#p0-glyph-7-3" x="280.165176" y="140.946" />

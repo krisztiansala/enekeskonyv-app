@@ -649,22 +649,35 @@ class ClipPathWordBoundaryTest(unittest.TestCase):
         result = render_verse_svg(svg, verse, block, None, onsets)
         clips = self._clip_widths(result)
 
+        # Baked lyrics are <g clip-path> groups of <use href="#lg-*"> glyph
+        # runs — there are no <text> elements. Identify each syllable's clip
+        # by its exact glyph-run tuple so missing clips fail the assertion.
         root = ET.fromstring(result)
         ns = '{http://www.w3.org/2000/svg}'
+        href = '{http://www.w3.org/1999/xlink}href'
         syl_clips = {}
-        for t in root.iter(f'{ns}text'):
-            text = t.text or ''
-            cp = t.get('clip-path', '')
-            if cp and text not in ('-', '1. '):
-                clip_id = cp.removeprefix('url(#').removesuffix(')')
-                syl_clips[text] = clips.get(clip_id, 0)
-
-        if 'e' in syl_clips and 'gek' in syl_clips:
-            self.assertLess(
-                syl_clips['gek'], syl_clips['e'],
-                f'Word-final clip ({syl_clips["gek"]}) should be narrower '
-                f'than within-word clip ({syl_clips["e"]})',
+        for g in root.iter(f'{ns}g'):
+            cp = g.get('clip-path', '')
+            if not cp:
+                continue
+            run = tuple(
+                (u.get(href) or u.get('href', '')).lstrip('#')
+                for u in g.iter(f'{ns}use')
             )
+            clip_id = cp.removeprefix('url(#').removesuffix(')')
+            syl_clips[run] = clips.get(clip_id, 0)
+
+        # Within-word 'e' is baked with its following hyphen in the same run.
+        e_key = ('lg-e', 'lg-hyphen')
+        gek_key = ('lg-g', 'lg-e', 'lg-k')
+        self.assertIn(e_key, syl_clips, 'within-word syllable has no clip')
+        self.assertIn(gek_key, syl_clips, 'word-final syllable has no clip')
+        self.assertLess(
+            syl_clips[gek_key],
+            syl_clips[e_key],
+            f'Word-final clip ({syl_clips[gek_key]}) should be narrower '
+            f'than within-word clip ({syl_clips[e_key]})',
+        )
 
 
 class SongFontReductionTest(unittest.TestCase):

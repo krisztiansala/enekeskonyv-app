@@ -69,7 +69,7 @@ def pdf_words(pdf_path: Path) -> tuple[float, float, list[dict]]:
             ['pdftotext', '-bbox-layout', str(pdf_path), str(out)],
             check=True, capture_output=True,
         )
-        return m.extract_words_from_bbox_html(out.read_text())
+        return m.extract_words_from_bbox_html(out.read_text(encoding='utf-8'))
 
 
 def pdf_to_svg(pdf_path: Path) -> Path:
@@ -278,12 +278,59 @@ def _inside_furniture(uses, boxes) -> bool:
     return True
 
 
+_PATH_ARITY = {
+    'M': 2, 'L': 2, 'C': 6, 'S': 4, 'Q': 4, 'T': 2,
+    'A': 7, 'V': 1, 'H': 1, 'Z': 0,
+}
+_PATH_YPOS = {
+    'M': (1,), 'L': (1,), 'C': (1, 3, 5), 'S': (1, 3), 'Q': (1, 3),
+    'T': (1,), 'A': (6,), 'V': (0,),
+}
+_PATH_TOKEN = re.compile(
+    r'[A-Za-z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?'
+)
+
+
+def _shift_path_d(d: str, dy: float) -> str:
+    """Shift the y coordinates of absolute path commands by dy. Relative
+    (lowercase) commands and non-coordinate params (arc rotation/flags,
+    H x-values) are left untouched."""
+    out, run, cmd = [], [], ''
+
+    def flush():
+        if not run:
+            return
+        arity = _PATH_ARITY.get(cmd.upper(), 0)
+        ys = set() if cmd.islower() else set(_PATH_YPOS.get(cmd.upper(), ()))
+        for idx, v in enumerate(run):
+            pos = idx % arity if arity else 0
+            out.append(f'{float(v) + dy:g}' if arity and pos in ys else v)
+        run.clear()
+
+    for p in _PATH_TOKEN.findall(d):
+        if p.isalpha():
+            flush()
+            cmd = p
+            out.append(p)
+        else:
+            run.append(p)
+    flush()
+    return ' '.join(out)
+
+
 def _shift_y(el, dy: float) -> None:
     """Add dy to every absolute y coordinate an element carries, so stitched
     pieces keep a flat coordinate space the generator understands."""
     for node in el.iter():
         if node.tag == f'{NS}use' and node.get('y') is not None:
             node.set('y', f'{float(node.get("y")) + dy:.3f}')
+        # An untransformed path carries absolute page coordinates in d —
+        # shift them too, or it renders at its original position (off the
+        # rebased region). A path with transform positions via the matrix.
+        if node.tag == f'{NS}path' and not node.get('transform'):
+            d = node.get('d')
+            if d:
+                node.set('d', _shift_path_d(d, dy))
         tr = node.get('transform', '')
         if tr:
             def _mat(mm):
@@ -303,14 +350,8 @@ def _shift_clip_paths(defs_parent, dy: float) -> None:
     for cp in defs_parent.iter(f'{NS}clipPath'):
         for p in cp.iter(f'{NS}path'):
             d = p.get('d', '')
-            nums = re.findall(r'[-\d.]+', d)
-            if not nums:
-                continue
-            for i in range(1, len(nums), 2):
-                nums[i] = f'{float(nums[i]) + dy:g}'
-            # re-join keeping the command letters
-            it = iter(nums)
-            p.set('d', re.sub(r'[-\d.]+', lambda _m: next(it), d))
+            if d:
+                p.set('d', _shift_path_d(d, dy))
 
 
 def extract_piece(svg_path: Path, top: float, bottom: float, prefix: str,
@@ -321,7 +362,18 @@ def extract_piece(svg_path: Path, top: float, bottom: float, prefix: str,
     rects = clip_rects(root)
     defs = ET.Element(f'{NS}defs')
     content = []
-    for el in root:
+
+    def top_level(node):
+        # Some pdftocairo versions wrap page content in a single
+        # <g id="surface…"> — treat its children as top level so the
+        # region/furniture filters see elements, not the wrapper.
+        for el in node:
+            if el.tag == f'{NS}g' and (el.get('id') or '').startswith('surface'):
+                yield from el
+            else:
+                yield el
+
+    for el in top_level(root):
         if el.tag == f'{NS}defs':
             for d in el:
                 rewrite_refs(d, prefix)
@@ -505,7 +557,11 @@ def main() -> int:
 
     songbook = m.load_songbook()
     erdelyi = songbook['erdelyi']
-    for n in args.songs:
+    songs = args.songs
+    if args.audit and not songs:
+        # Bare --audit sweeps every printed-number mapping.
+        songs = sorted(PRINTED_NUMBERS, key=int)
+    for n in songs:
         n = n.lstrip('0') or '0'
         song = erdelyi.get(n)
         if song is None:

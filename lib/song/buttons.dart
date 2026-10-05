@@ -154,7 +154,7 @@ class ControllerButtons extends StatelessWidget {
     TickerProvider vsync,
   ) {
     return [
-      if (settings.scoreDisplay == ScoreDisplay.all || state.inCue)
+      if (state.versesArePaged(settings))
         IconButton(
           key: const Key('_MySongPageState.IconButton.prevVerse'),
           onPressed: state.verseExists(next: false)
@@ -184,7 +184,7 @@ class ControllerButtons extends StatelessWidget {
         alignment: Alignment.bottomRight,
         context: context,
       ),
-      if (!(settings.scoreDisplay == ScoreDisplay.all || state.inCue))
+      if (!state.versesArePaged(settings))
         IconButton(
           onPressed: settings.fontSize < 40.0
               ? () => settings.changeFontSize(settings.fontSize + 2.0)
@@ -208,7 +208,7 @@ class ControllerButtons extends StatelessWidget {
           );
         },
       ),
-      if (!(settings.scoreDisplay == ScoreDisplay.all || state.inCue))
+      if (!state.versesArePaged(settings))
         IconButton(
           onPressed: settings.fontSize > 10.0
               ? () => {settings.changeFontSize(settings.fontSize - 2.0)}
@@ -231,7 +231,7 @@ class ControllerButtons extends StatelessWidget {
         alignment: Alignment.topRight,
         context: context,
       ),
-      if (settings.scoreDisplay == ScoreDisplay.all || state.inCue)
+      if (state.versesArePaged(settings))
         IconButton(
           key: const Key('_MySongPageState.IconButton.nextVerse'),
           onPressed: state.verseExists(next: true)

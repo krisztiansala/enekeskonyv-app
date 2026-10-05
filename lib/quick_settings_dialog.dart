@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:fading_edge_scrollview/fading_edge_scrollview.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mailto/mailto.dart';
 import 'package:provider/provider.dart';
@@ -63,7 +64,7 @@ class QuickSettingsDialog extends StatelessWidget {
                       ],
                       const SettingsSectionTitle('Beállítások'),
                       const SettingsSectionTitle('Kotta', subtitle: true),
-                      if (Platform.isIOS)
+                      if (!kIsWeb && Platform.isIOS)
                         Padding(
                           padding: const EdgeInsets.all(8),
                           child: CupertinoSlidingSegmentedControl<ScoreDisplay>(
@@ -177,7 +178,7 @@ class QuickSettingsDialog extends StatelessWidget {
                               Brightness.dark)
                         ListTile(
                           title: const Text('Teljesen fekete háttér'),
-                          trailing: Platform.isIOS
+                          trailing: !kIsWeb && Platform.isIOS
                               ? CupertinoSwitch(
                                   value: settings.isOledTheme,
                                   onChanged: (value) {
@@ -196,7 +197,7 @@ class QuickSettingsDialog extends StatelessWidget {
                         title: const Text(
                           'Versszak- és énekváltás koppintással',
                         ),
-                        trailing: Platform.isIOS
+                        trailing: !kIsWeb && Platform.isIOS
                             ? CupertinoSwitch(
                                 value: settings.tapNavigation,
                                 onChanged: (value) {
@@ -213,7 +214,7 @@ class QuickSettingsDialog extends StatelessWidget {
                       if (settings.scoreDisplay == ScoreDisplay.all)
                         ListTile(
                           title: const Text('Versszakválasztó sáv'),
-                          trailing: Platform.isIOS
+                          trailing: !kIsWeb && Platform.isIOS
                               ? CupertinoSwitch(
                                   value: settings.isVerseBarEnabled,
                                   onChanged: (value) {
@@ -273,7 +274,7 @@ Csatolhatsz képet is.''',
                         const Divider(endIndent: 70, indent: 70),
                         ListTile(
                           title: const Text('Alkalmazáshibák megjelenítése'),
-                          trailing: Platform.isIOS
+                          trailing: !kIsWeb && Platform.isIOS
                               ? CupertinoSwitch(
                                   value: settings.showErrors,
                                   onChanged: (value) {
