@@ -145,6 +145,40 @@ void main() {
     );
   });
 
+  test('cues page scoreless songs by verse, all-mode does not', () {
+    // A cue element targets a specific verse, so verse paging stays on even
+    // without a score (each verse gets a text page). In all-mode a scoreless
+    // song is a single text page — paging would buy nothing and out-of-range
+    // tab indices crash the controller.
+    expect(
+      shouldSplitPagesByVerse(
+        scoreDisplay: ScoreDisplay.all,
+        inCue: true,
+        hasScore: false,
+        usesSingleScorePage: false,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldSplitPagesByVerse(
+        scoreDisplay: ScoreDisplay.all,
+        inCue: false,
+        hasScore: false,
+        usesSingleScorePage: false,
+      ),
+      isFalse,
+    );
+    expect(
+      shouldSplitPagesByVerse(
+        scoreDisplay: ScoreDisplay.first,
+        inCue: false,
+        hasScore: true,
+        usesSingleScorePage: false,
+      ),
+      isFalse,
+    );
+  });
+
   test('songUsesSingleScorePage detects single-sheet erdelyi songs', () {
     songBooks = {
       'erdelyi': {

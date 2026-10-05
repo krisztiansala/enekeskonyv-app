@@ -40,6 +40,18 @@ Or, if the official app is installed on a connected Android device:
 tool/restore_official_scores.sh
 ```
 
+The same applies to the generated Erdélyi verse scores: the repo tracks the
+`assets/referdelyi/*-001.svg` source sheets, while the per-verse
+`assets/referdelyi/*-v*.svg` files are generated and intentionally untracked
+(they are large and reproducible). Without them the app still builds, but
+Erdélyi songs fall back to verse text. To generate them on a fresh checkout:
+
+```bash
+python3 tool/import_reformatus_scores.py --rebuild-generated-verse-svgs
+```
+
+(needs `fontTools` and `pyphen`; see `tool/README.md`).
+
 [Adatvédelmi irányelvek](PRIVACY.md)
 
 <sup><sub>A Google Play és a Google Play-logó a Google LLC védjegyei.<br />Apple logo® and App Store® are trademarks of Apple Inc., registered in the U.S. and other countries.</sub></sup>

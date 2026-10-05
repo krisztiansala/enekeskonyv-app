@@ -103,7 +103,12 @@ bool shouldSplitPagesByVerse({
   required bool hasScore,
   required bool usesSingleScorePage,
 }) {
-  return hasScore && (scoreDisplay == ScoreDisplay.all || inCue);
+  // Cues always page by verse — a cue element targets a specific verse, and
+  // a scoreless song still shows one text page per verse so the selected
+  // verse is reached. Outside cues, verse paging exists to give each verse
+  // its own score page, so it only applies in "all" mode when there is a
+  // score to show.
+  return inCue || (hasScore && scoreDisplay == ScoreDisplay.all);
 }
 
 bool shouldSupplementVerseTextForRepeatedScore(

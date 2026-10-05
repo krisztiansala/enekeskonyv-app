@@ -77,6 +77,9 @@ class SongStateProvider extends ChangeNotifier {
   }) {
     initialIndex ??= tabController.index;
     numOfPages ??= tabController.length;
+    // verse is a logical position (e.g. the cue's target verse); clamp the
+    // controller index so callers can never pass an out-of-range index.
+    initialIndex = initialIndex.clamp(0, numOfPages - 1);
 
     tabs.clear();
 
